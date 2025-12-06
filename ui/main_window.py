@@ -1,14 +1,14 @@
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QPushButton, QDialog, QSpinBox, QMessageBox, QProgressBar,
-    QGridLayout, QGraphicsDropShadowEffect, QSizePolicy
+    QGridLayout, QGraphicsDropShadowEffect, QSizePolicy, QSystemTrayIcon
 )
 from PySide6.QtCore import QTimer, Qt, QDateTime, Signal
 from PySide6.QtGui import QFont, QColor, QPalette
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
-from .dialogs import ReminderDialog, SettingsDialog
+from .dialogs import SettingsDialog, NotificationDialog
 from .heatmap_widget import HeatmapWidget
 
 class MainWindow(QMainWindow):
@@ -134,27 +134,55 @@ class MainWindow(QMainWindow):
         self.today_label.setText(f"Today: {total} pushups")
         
     def show_reminder_dialog(self):
-        dialog = ReminderDialog(self)
-        if dialog.exec():
-            count = dialog.get_count()
-            self.tracker.save_pushups(count)
-            self.update_today_total()
-            self.next_reminder = QDateTime.currentDateTime().addSecs(
-                self.tracker.config.get("timer_minutes", 35) * 60
-            )
-        else:
-            self.tracker.save_pushups(0)
-            self.next_reminder = QDateTime.currentDateTime().addSecs(
-                self.tracker.config.get("timer_minutes", 35) * 60
-            )
+        """Show non-modal notification dialog"""
+        # Only show one at a time
+        if hasattr(self, '_notification_dialog') and self._notification_dialog:
+            return
+            
+        from .dialogs import NotificationDialog
         
-        # Show desktop notification
-        self.show_notification("Pushup Timer", f"Saved {count if dialog.exec() else 0} pushups!")
+        self._notification_dialog = NotificationDialog()
+        self._notification_dialog.closed.connect(self.on_notification_closed)
+        self._notification_dialog.show()
         
+        # Position at bottom right
+        screen = self._notification_dialog.screen()
+        screen_geometry = screen.availableGeometry()
+        x = screen_geometry.width() - self._notification_dialog.width() - 20
+        y = screen_geometry.height() - self._notification_dialog.height() - 50
+        self._notification_dialog.move(x, y)
+        
+        # Show system tray notification too
+        self.show_notification("Pushup Time!", "35 minutes are up!")
+        
+    def on_notification_closed(self, count):
+        """Handle notification dialog closing"""
+        if hasattr(self, '_notification_dialog'):
+            self._notification_dialog.deleteLater()
+            self._notification_dialog = None
+            
+        # Save pushups
+        self.tracker.save_pushups(count)
+        self.update_today_total()
+        
+        # Restart timer
+        self.tracker.start_timer()
+        self.next_reminder = QDateTime.currentDateTime().addSecs(
+            self.tracker.config.get("timer_minutes", 35) * 60
+        )
+        
+        # Show confirmation notification
+        if count > 0:
+            self.show_notification("Pushups Logged", f"Great job! {count} pushups logged.")
+            
     def show_notification(self, title, message):
-        from PySide6.QtWidgets import QSystemTrayIcon
-        tray = QSystemTrayIcon()
-        tray.showMessage(title, message, QSystemTrayIcon.Information, 3000)
+        """Show system tray notification"""
+        try:
+            from PySide6.QtWidgets import QSystemTrayIcon
+            # Show notification in system tray
+            QSystemTrayIcon.showMessage(self, title, message, QSystemTrayIcon.Information, 3000)
+        except:
+            pass  # Silently fail if notifications not supported
         
     def show_heatmap(self):
         dialog = QDialog(self)
