@@ -1,0 +1,8 @@
+{
+  "timer_minutes": 35,
+  "reminder_seconds": 60,
+  "autostart": true,
+  "start_minimized": true,
+  "theme": "light",
+  "aggregate_mode": "add"
+}
