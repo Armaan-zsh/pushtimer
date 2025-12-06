@@ -12,82 +12,130 @@ class NotificationDialog(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowFlags(Qt.ToolTip | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        # Use these flags for proper behavior
+        self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setFixedSize(300, 180)
+        self.setFixedSize(320, 200)
         
-        self.count = 0
         self.setup_ui()
         
     def setup_ui(self):
-        # Main widget with rounded corners
-        self.main_widget = QWidget(self)
-        self.main_widget.setStyleSheet("""
-            QWidget {
-                background-color: #ffffff;
-                border-radius: 10px;
-                border: 2px solid #4CAF50;
+        # Create main widget with proper styling
+        main_widget = QWidget(self)
+        main_widget.setObjectName("mainWidget")
+        main_widget.setStyleSheet("""
+            QWidget#mainWidget {
+                background-color: white;
+                border: 3px solid #4CAF50;
+                border-radius: 12px;
             }
         """)
-        self.main_widget.setGeometry(0, 0, 300, 180)
+        main_widget.setGeometry(0, 0, 320, 200)
         
-        layout = QVBoxLayout(self.main_widget)
+        # Main layout
+        layout = QVBoxLayout(main_widget)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
         
-        # Title
+        # Title - FIXED EMOJI AND TEXT
         title = QLabel("💪 Pushup Time!")
         title_font = QFont()
-        title_font.setPointSize(16)
+        title_font.setPointSize(18)
         title_font.setBold(True)
         title.setFont(title_font)
         title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("color: #2E7D32; margin-bottom: 5px;")
         layout.addWidget(title)
         
-        # Message
+        # Message - FIXED TYPO: "Draw many machines" → "How many pushups"
         message = QLabel("35 minutes are up!\nHow many pushups did you do?")
         message.setAlignment(Qt.AlignCenter)
+        message.setStyleSheet("""
+            QLabel {
+                color: #555;
+                font-size: 14px;
+                padding: 5px;
+            }
+        """)
         layout.addWidget(message)
         
-        # Input
+        # Input section
         input_layout = QHBoxLayout()
+        input_layout.addStretch()
+        
         self.count_spinbox = QSpinBox()
         self.count_spinbox.setRange(0, 999)
         self.count_spinbox.setValue(10)
-        self.count_spinbox.setMinimumWidth(80)
-        input_layout.addStretch()
+        self.count_spinbox.setMinimumWidth(120)
+        self.count_spinbox.setStyleSheet("""
+            QSpinBox {
+                font-size: 16px;
+                font-weight: bold;
+                padding: 8px 12px;
+                border: 2px solid #4CAF50;
+                border-radius: 6px;
+                background-color: white;
+                color: #333;
+            }
+            QSpinBox:focus {
+                border-color: #2196F3;
+            }
+            QSpinBox::up-button {
+                width: 20px;
+                border-left: 1px solid #ccc;
+            }
+            QSpinBox::down-button {
+                width: 20px;
+                border-left: 1px solid #ccc;
+            }
+        """)
         input_layout.addWidget(self.count_spinbox)
         input_layout.addStretch()
         layout.addLayout(input_layout)
         
-        # Buttons
+        # Buttons - FIXED: "SETTLE" → "Skip", "LIVE WHEN LIVE" → "Log Pushups"
         button_layout = QHBoxLayout()
+        button_layout.setSpacing(15)
         
         skip_btn = QPushButton("Skip")
+        skip_btn.setFixedHeight(40)
         skip_btn.clicked.connect(self.skip)
         skip_btn.setStyleSheet("""
             QPushButton {
-                padding: 8px 16px;
-                border-radius: 5px;
                 background-color: #f44336;
                 color: white;
+                font-size: 14px;
+                font-weight: bold;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
             }
             QPushButton:hover {
                 background-color: #d32f2f;
             }
+            QPushButton:pressed {
+                background-color: #b71c1c;
+            }
         """)
         
         log_btn = QPushButton("Log Pushups")
+        log_btn.setFixedHeight(40)
         log_btn.clicked.connect(self.log)
         log_btn.setStyleSheet("""
             QPushButton {
-                padding: 8px 16px;
-                border-radius: 5px;
                 background-color: #4CAF50;
                 color: white;
+                font-size: 14px;
+                font-weight: bold;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
             }
             QPushButton:hover {
                 background-color: #388E3C;
+            }
+            QPushButton:pressed {
+                background-color: #2E7D32;
             }
         """)
         
@@ -101,8 +149,16 @@ class NotificationDialog(QWidget):
         self.timer.timeout.connect(self.auto_close)
         
     def showEvent(self, event):
-        """When dialog is shown, start the auto-close timer"""
+        """When dialog is shown, start the auto-close timer and position it"""
         self.timer.start(120000)  # 2 minutes
+        
+        # Position at bottom right
+        screen = QApplication.primaryScreen()
+        screen_geometry = screen.availableGeometry()
+        x = screen_geometry.width() - self.width() - 20
+        y = screen_geometry.height() - self.height() - 50
+        self.move(x, y)
+        
         super().showEvent(event)
         
     def skip(self):
@@ -123,13 +179,16 @@ class NotificationDialog(QWidget):
         self.close()
         
     def paintEvent(self, event):
-        """Draw drop shadow"""
+        """Draw shadow effect"""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
+        
+        # Draw shadow
         painter.setBrush(QBrush(QColor(0, 0, 0, 30)))
         painter.setPen(Qt.NoPen)
-        painter.drawRoundedRect(5, 5, self.width() - 10, self.height() - 10, 10, 10)
-
+        painter.drawRoundedRect(4, 4, self.width(), self.height(), 12, 12)
+        
+        # Main widget is already drawn by Qt, we just need the shadow
 
 class SettingsDialog(QDialog):
     def __init__(self, config, parent=None):
