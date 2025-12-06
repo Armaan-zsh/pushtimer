@@ -252,3 +252,13 @@ class MainWindow(QMainWindow):
             """)
         else:
             self.setStyleSheet("")
+    
+    def closeEvent(self, event):
+        """Override close event to hide instead of quit"""
+        # Just hide the window, don't close the app
+        self.hide()
+        event.ignore()  # Don't process the close event
+        
+        # Show notification
+        self.show_notification("Pushup Timer", 
+                             "App is still running in system tray. Right-click the green icon to show window.")

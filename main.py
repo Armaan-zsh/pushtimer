@@ -151,6 +151,9 @@ def main():
     app.setApplicationName("Pushup Timer")
     app.setOrganizationName("PushupTracker")
     
+    # MOST IMPORTANT LINE: Don't quit when last window closes
+    app.setQuitOnLastWindowClosed(False)
+    
     # Create tracker
     tracker = PushupTracker()
     
@@ -200,6 +203,7 @@ def main():
     
     show_action = QAction("Show Window")
     show_action.triggered.connect(window.show)
+    show_action.triggered.connect(window.raise_)  # Bring to front
     tray_menu.addAction(show_action)
     
     pause_action = QAction("Pause Timer")
