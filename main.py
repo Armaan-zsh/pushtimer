@@ -191,8 +191,14 @@ def main():
         painter.end()
         tray_icon.setIcon(QIcon(pixmap))
     
-    tray_menu = QMenu()
+     tray_menu = QMenu()
     
+    # ADD THIS NEW ACTION:
+    log_now_action = QAction("Log Pushups Now")
+    log_now_action.triggered.connect(window.show_reminder_dialog)
+    tray_menu.addAction(log_now_action)
+    
+    # Then add the existing actions:
     show_action = QAction("Show Window")
     show_action.triggered.connect(window.show)
     tray_menu.addAction(show_action)
@@ -209,11 +215,7 @@ def main():
     
     quit_action = QAction("Quit")
     quit_action.triggered.connect(app.quit)
-    tray_menu.addAction(quit_action)
-    
-    tray_icon.setContextMenu(tray_menu)
-    tray_icon.show()
-    
+    tray_menu.addAction(quit_action)   
     # Connect reminder signal
     tracker.reminder_signal.connect(window.show_reminder_dialog)
     
