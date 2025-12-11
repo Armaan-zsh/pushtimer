@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 """
 Pushup Timer Application
-Runs every 35 minutes, tracks pushups, shows heatmap
 """
 
 import sys
-import os
 import json
 import sqlite3
 import datetime
 from pathlib import Path
-from PySide6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon, QMenu
-from PySide6.QtCore import QTimer, QDateTime, Qt, QSettings, Signal, QObject
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
+from PySide6.QtCore import QTimer, Qt, Signal, QObject
 from PySide6.QtGui import QIcon, QAction, QPixmap, QPainter, QColor, QPen
 from ui.main_window import MainWindow
 
@@ -25,22 +23,18 @@ class PushupTracker(QObject):
         self.db_path = self.app_dir / "pushups.db"
         self.config_path = self.config_dir / "config.json"
         
-        # Create directories if they don't exist
         self.app_dir.mkdir(parents=True, exist_ok=True)
         self.config_dir.mkdir(parents=True, exist_ok=True)
         
-        # Initialize database and config
         self.init_db()
         self.load_config()
         
-        # Timer setup
         self.timer = QTimer()
         self.timer.timeout.connect(self.show_reminder)
         self.is_paused = False
-        self.reminder_time = self.config.get("timer_minutes", 35) * 60 * 1000  # Convert to ms
+        self.reminder_time = self.config.get("timer_minutes", 35) * 60 * 1000
         
     def init_db(self):
-        """Initialize SQLite database"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
@@ -51,14 +45,11 @@ class PushupTracker(QObject):
                 timestamp TEXT NOT NULL
             )
         ''')
-        cursor.execute('''
-            CREATE INDEX IF NOT EXISTS idx_date ON pushups(date)
-        ''')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_date ON pushups(date)')
         conn.commit()
         conn.close()
     
     def load_config(self):
-        """Load or create default configuration"""
         default_config = {
             "timer_minutes": 35,
             "reminder_seconds": 60,
@@ -77,31 +68,25 @@ class PushupTracker(QObject):
             self.save_config()
     
     def save_config(self):
-        """Save configuration to file"""
         with open(self.config_path, 'w') as f:
             json.dump(self.config, f, indent=2)
     
     def start_timer(self):
-        """Start or restart the reminder timer"""
         if not self.is_paused:
             self.timer.start(self.reminder_time)
     
     def pause_timer(self):
-        """Pause the timer"""
         self.is_paused = True
         self.timer.stop()
     
     def resume_timer(self):
-        """Resume the timer"""
         self.is_paused = False
         self.timer.start(self.reminder_time)
     
     def show_reminder(self):
-        """Emit signal to show reminder dialog"""
         self.reminder_signal.emit()
     
     def save_pushups(self, count):
-        """Save pushup count to database"""
         today = datetime.date.today().isoformat()
         now = datetime.datetime.now().isoformat()
         
@@ -109,7 +94,6 @@ class PushupTracker(QObject):
         cursor = conn.cursor()
         
         if self.config.get("aggregate_mode") == "replace":
-            # Delete existing entries for today
             cursor.execute("DELETE FROM pushups WHERE date = ?", (today,))
         
         cursor.execute(
@@ -118,71 +102,39 @@ class PushupTracker(QObject):
         )
         conn.commit()
         conn.close()
-        
-        # Restart timer
         self.start_timer()
     
     def get_today_total(self):
-        """Get total pushups for today"""
         today = datetime.date.today().isoformat()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT SUM(count) FROM pushups WHERE date = ?",
-            (today,)
-        )
+        cursor.execute("SELECT SUM(count) FROM pushups WHERE date = ?", (today,))
         result = cursor.fetchone()[0]
         conn.close()
         return result or 0
     
     def get_all_data(self):
-        """Get all pushup data for heatmap"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT date, SUM(count) as total FROM pushups GROUP BY date ORDER BY date"
-        )
+        cursor.execute("SELECT date, SUM(count) as total FROM pushups GROUP BY date ORDER BY date")
         data = {row[0]: row[1] for row in cursor.fetchall()}
         conn.close()
         return data
 
 def main():
-    # Set up application
     app = QApplication(sys.argv)
     app.setApplicationName("Pushup Timer")
-    app.setOrganizationName("PushupTracker")
-    
-    # MOST IMPORTANT LINE: Don't quit when last window closes
     app.setQuitOnLastWindowClosed(False)
     
-    # Create tracker
     tracker = PushupTracker()
-    
-    # Create main window
     window = MainWindow(tracker)
     
-    # System tray
     tray_icon = QSystemTrayIcon()
     
-    # Try to load icon from multiple locations
-    icon_paths = [
-        Path(__file__).parent / "assets/icons/pushtimer.svg",
-        Path(__file__).parent / "assets/icons/pushtimer.png",
-        Path.home() / ".local/share/pushtimer/pushtimer.svg"
-    ]
-    
-    icon_loaded = False
-    for icon_path in icon_paths:
-        if icon_path.exists():
-            icon = QIcon(str(icon_path))
-            if not icon.isNull():
-                tray_icon.setIcon(icon)
-                icon_loaded = True
-                break
-    
-    # If no icon loaded, use a simple generated icon
-    if not icon_loaded:
-        # Create a simple pixmap icon
+    icon_path = Path(__file__).parent / "assets/icons/pushtimer.svg"
+    if icon_path.exists():
+        tray_icon.setIcon(QIcon(str(icon_path)))
+    else:
         pixmap = QPixmap(64, 64)
         pixmap.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pixmap)
@@ -197,14 +149,12 @@ def main():
     
     tray_menu = QMenu()
     
-    # Add Log Pushups Now option
     log_now_action = QAction("Log Pushups Now")
     log_now_action.triggered.connect(window.show_reminder_dialog)
     tray_menu.addAction(log_now_action)
     
     show_action = QAction("Show Window")
     show_action.triggered.connect(window.show)
-    show_action.triggered.connect(window.raise_)
     tray_menu.addAction(show_action)
     
     pause_action = QAction("Pause Timer")
@@ -224,13 +174,9 @@ def main():
     tray_icon.setContextMenu(tray_menu)
     tray_icon.show()
     
-    # Connect reminder signal
     tracker.reminder_signal.connect(window.show_reminder_dialog)
-    
-    # Start timer
     tracker.start_timer()
     
-    # Show or hide window based on config
     if tracker.config.get("start_minimized", True):
         window.hide()
     else:
@@ -240,7 +186,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-EOF
-
-# Replace your main.py
-mv main_fixed.py main.py

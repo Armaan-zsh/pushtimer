@@ -137,52 +137,85 @@ class MainWindow(QMainWindow):
         """Show non-modal notification dialog"""
         # Only show one at a time
         if hasattr(self, '_notification_dialog') and self._notification_dialog:
-            return
-            
-        from .dialogs import NotificationDialog
-        
+            if self._notification_dialog.isVisible():
+                return
+            else:
+                self._notification_dialog = None
+                
         self._notification_dialog = NotificationDialog()
-        self._notification_dialog.closed.connect(self.on_notification_closed)
+        self._notification_dialog.action_taken.connect(self.on_notification_closed)
         self._notification_dialog.show()
         
-        # Position at bottom right
-        screen = self._notification_dialog.screen()
-        screen_geometry = screen.availableGeometry()
-        x = screen_geometry.width() - self._notification_dialog.width() - 20
-        y = screen_geometry.height() - self._notification_dialog.height() - 50
-        self._notification_dialog.move(x, y)
-        
-        # Show system tray notification too
-        self.show_notification("Pushup Time!", "35 minutes are up!")
-        
-    def on_notification_closed(self, count):
-        """Handle notification dialog closing"""
+    def on_notification_closed(self, action_type):
+        """Handle notification dialog closing with different actions"""
         if hasattr(self, '_notification_dialog'):
             self._notification_dialog.deleteLater()
             self._notification_dialog = None
             
-        # Save pushups
-        self.tracker.save_pushups(count)
-        self.update_today_total()
+        # Action types:
+        # -2 = Grace period cancel (do nothing, don't reset timer)
+        # -1 = Snooze for 5 minutes
+        # 0 = Skip (log 0 pushups)
+        # >0 = Log pushups
         
-        # Restart timer
-        self.tracker.start_timer()
+        if action_type == -2:
+            # Grace period cancel - do nothing
+            self.show_notification("Reminder Cancelled", 
+                                 "No action taken. Next reminder in 35 minutes.")
+            return
+            
+        elif action_type == -1:
+            # Snooze for 5 minutes
+            self.tracker.pause_timer()
+            
+            # Calculate new reminder time
+            self.next_reminder = QDateTime.currentDateTime().addSecs(5 * 60)
+            
+            # Set a one-time timer for 5 minutes
+            QTimer.singleShot(5 * 60 * 1000, self.snooze_ended)
+            
+            self.status_label.setText("Snoozed for 5 min")
+            self.pause_btn.setText("Resume Timer")
+            self.show_notification("Snoozed", 
+                                 "Reminder paused for 5 minutes. Back in 5 minutes!")
+            return
+            
+        elif action_type >= 0:
+            # Skip (0) or Log (>0)
+            self.tracker.save_pushups(action_type)
+            self.update_today_total()
+            
+            # Restart timer
+            self.tracker.start_timer()
+            self.next_reminder = QDateTime.currentDateTime().addSecs(
+                self.tracker.config.get("timer_minutes", 35) * 60
+            )
+            
+            # Show confirmation
+            if action_type > 0:
+                self.show_notification("Pushups Logged", 
+                                     f"Great job! {action_type} pushups logged.")
+            else:
+                self.show_notification("Skipped", 
+                                     "Logged 0 pushups. Next reminder in 35 minutes.")
+            
+    def snooze_ended(self):
+        """Called when snooze period ends"""
+        self.tracker.resume_timer()
         self.next_reminder = QDateTime.currentDateTime().addSecs(
             self.tracker.config.get("timer_minutes", 35) * 60
         )
-        
-        # Show confirmation notification
-        if count > 0:
-            self.show_notification("Pushups Logged", f"Great job! {count} pushups logged.")
+        self.status_label.setText("Timer running")
+        self.pause_btn.setText("Pause Timer")
+        self.show_notification("Snooze Ended", 
+                             "Back to regular reminders every 35 minutes!")
             
     def show_notification(self, title, message):
         """Show system tray notification"""
         try:
-            from PySide6.QtWidgets import QSystemTrayIcon
-            # Show notification in system tray
             QSystemTrayIcon.showMessage(self, title, message, QSystemTrayIcon.Information, 3000)
         except:
-            pass  # Silently fail if notifications not supported
+            pass
         
     def show_heatmap(self):
         dialog = QDialog(self)
