@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """
 Pushup Timer Application
+Runs every 35 minutes, tracks pushups, shows heatmap
 """
 
 import sys
 import json
 import sqlite3
 import datetime
+import threading
 from pathlib import Path
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 from PySide6.QtCore import QTimer, Qt, Signal, QObject
 from PySide6.QtGui import QIcon, QAction, QPixmap, QPainter, QColor, QPen
 from ui.main_window import MainWindow
+from web_server import PushupWebServer
 
 class PushupTracker(QObject):
     reminder_signal = Signal()
@@ -56,7 +59,9 @@ class PushupTracker(QObject):
             "autostart": True,
             "start_minimized": True,
             "theme": "light",
-            "aggregate_mode": "add"
+            "aggregate_mode": "add",
+            "enable_phone_sync": True,
+            "web_server_port": 8080
         }
         
         if self.config_path.exists():
@@ -129,12 +134,27 @@ def main():
     tracker = PushupTracker()
     window = MainWindow(tracker)
     
+    # Start web server for phone sync (if enabled)
+    web_server = None
+    if tracker.config.get("enable_phone_sync", True):
+        try:
+            from web_server import PushupWebServer
+            port = tracker.config.get("web_server_port", 8080)
+            web_server = PushupWebServer(tracker.db_path, port)
+            web_server_thread = web_server.start_in_thread()
+            window.web_server = web_server  # Pass to window for QR code generation
+        except Exception as e:
+            print(f"⚠️ Failed to start web server: {e}")
+    
+    # System tray
     tray_icon = QSystemTrayIcon()
     
+    # Load icon
     icon_path = Path(__file__).parent / "assets/icons/pushtimer.svg"
     if icon_path.exists():
         tray_icon.setIcon(QIcon(str(icon_path)))
     else:
+        # Create simple icon
         pixmap = QPixmap(64, 64)
         pixmap.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pixmap)
@@ -147,6 +167,7 @@ def main():
         painter.end()
         tray_icon.setIcon(QIcon(pixmap))
     
+    # Tray menu
     tray_menu = QMenu()
     
     log_now_action = QAction("Log Pushups Now")
@@ -156,6 +177,10 @@ def main():
     show_action = QAction("Show Window")
     show_action.triggered.connect(window.show)
     tray_menu.addAction(show_action)
+    
+    phone_sync_action = QAction("Phone Sync")
+    phone_sync_action.triggered.connect(window.show_sync_dialog)
+    tray_menu.addAction(phone_sync_action)
     
     pause_action = QAction("Pause Timer")
     pause_action.triggered.connect(tracker.pause_timer)
@@ -174,9 +199,11 @@ def main():
     tray_icon.setContextMenu(tray_menu)
     tray_icon.show()
     
+    # Connect signals
     tracker.reminder_signal.connect(window.show_reminder_dialog)
     tracker.start_timer()
     
+    # Show/hide window
     if tracker.config.get("start_minimized", True):
         window.hide()
     else:

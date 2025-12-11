@@ -24,7 +24,6 @@ class PushupWebServer:
     def get_local_ip(self):
         """Get laptop's IP address on hotspot"""
         try:
-            # Try to find the hotspot interface (usually wlan0 or similar)
             interfaces = netifaces.interfaces()
             for interface in interfaces:
                 if interface.startswith(('wlan', 'wl', 'en')):
@@ -32,9 +31,8 @@ class PushupWebServer:
                     if netifaces.AF_INET in addrs:
                         for addr in addrs[netifaces.AF_INET]:
                             ip = addr.get('addr')
-                            if ip and ip.startswith('192.168.43.'):  # Typical hotspot subnet
+                            if ip and ip.startswith('192.168.43.'):
                                 return ip
-            # Fallback: try socket method
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
             ip = s.getsockname()[0]
@@ -81,7 +79,6 @@ class PushupWebServer:
     def setup_routes(self):
         """Setup Flask routes"""
         
-        # HTML template for mobile web interface
         HTML_TEMPLATE = '''
         <!DOCTYPE html>
         <html>
@@ -142,9 +139,6 @@ class PushupWebServer:
                     align-items: center;
                     justify-content: center;
                 }
-                .counter-btn:active {
-                    transform: scale(0.95);
-                }
                 .counter-value {
                     font-size: 48px;
                     font-weight: bold;
@@ -162,9 +156,6 @@ class PushupWebServer:
                     font-weight: bold;
                     cursor: pointer;
                     margin-top: 20px;
-                }
-                .log-btn:active {
-                    transform: scale(0.98);
                 }
                 .recent-logs {
                     margin-top: 30px;
@@ -186,10 +177,6 @@ class PushupWebServer:
                 }
                 .success { background: #d4edda; color: #155724; }
                 .error { background: #f8d7da; color: #721c24; }
-                .qrcode {
-                    text-align: center;
-                    margin: 20px 0;
-                }
                 .instructions {
                     background: #f8f9fa;
                     padding: 15px;
@@ -257,7 +244,6 @@ class PushupWebServer:
                             showStatus(`✅ Logged ${count} pushups!`, 'success');
                             updateTodayTotal();
                             updateRecentLogs();
-                            // Reset to default value
                             count = 10;
                             document.getElementById('count').textContent = count;
                         } else {
@@ -364,8 +350,8 @@ class PushupWebServer:
     def run(self):
         """Run the Flask server"""
         ip = self.get_local_ip()
-        print(f"🌐 Web server starting on http://{ip}:{self.port}")
-        print(f"📱 Scan QR code from your phone to connect")
+        print(f"🌐 Web server: http://{ip}:{self.port}")
+        print(f"📱 Scan QR code from phone to connect")
         self.app.run(host='0.0.0.0', port=self.port, debug=False, threaded=True)
     
     def start_in_thread(self):

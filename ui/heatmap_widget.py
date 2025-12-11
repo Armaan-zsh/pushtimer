@@ -1,8 +1,7 @@
-from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QToolTip, QVBoxLayout
-from PySide6.QtCore import Qt, QDate, QTimer, Signal
-from PySide6.QtGui import QPainter, QColor, QBrush, QPen, QFont, QMouseEvent
+from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QToolTip
+from PySide6.QtCore import Qt, QDate, QTimer
+from PySide6.QtGui import QPainter, QColor, QBrush, QPen, QFont
 import datetime
-from math import ceil
 
 class HeatmapWidget(QWidget):
     def __init__(self, tracker):
@@ -11,25 +10,20 @@ class HeatmapWidget(QWidget):
         self.data = tracker.get_all_data()
         self.cell_size = 12
         self.cell_margin = 2
-        self.week_width = 7 * (self.cell_size + self.cell_margin)
         self.setMouseTracking(True)
         
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         
-        # Calculate weeks to show (52 weeks)
         today = QDate.currentDate()
         start_date = today.addDays(-52 * 7)
         
-        # Find max pushups for color scaling
         max_count = max(self.data.values()) if self.data else 1
         
-        # Draw heatmap
-        x_offset = 20  # Space for day labels
-        y_offset = 20  # Space for month labels
+        x_offset = 20
+        y_offset = 20
         
-        # Draw day labels (Sun-Sat)
         days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
         font = QFont()
         font.setPointSize(8)
@@ -42,17 +36,15 @@ class HeatmapWidget(QWidget):
                 self.cell_size,
                 10,
                 Qt.AlignCenter,
-                day[0]  # Just first letter
+                day[0]
             )
         
-        # Draw cells
         current_date = start_date
         month_labels = {}
         
         for week in range(52):
             week_x = x_offset + week * (self.cell_size + self.cell_margin)
             
-            # Track month for labels
             month = current_date.toString("MMM")
             if month not in month_labels:
                 month_labels[month] = week_x
@@ -61,16 +53,13 @@ class HeatmapWidget(QWidget):
                 date_str = current_date.toString("yyyy-MM-dd")
                 count = self.data.get(date_str, 0)
                 
-                # Calculate color intensity
                 if count == 0:
-                    color = QColor("#ebedf0")  # Light gray for no activity
+                    color = QColor("#ebedf0")
                 else:
-                    # Scale from light green to dark green
                     intensity = min(count / max_count, 1.0)
                     green = 144 + int(111 * intensity)
                     color = QColor(235, green, 52)
                 
-                # Draw cell
                 cell_y = y_offset + day * (self.cell_size + self.cell_margin)
                 painter.fillRect(
                     week_x, cell_y,
@@ -78,7 +67,6 @@ class HeatmapWidget(QWidget):
                     QBrush(color)
                 )
                 
-                # Draw border
                 painter.setPen(QPen(Qt.gray, 0.5))
                 painter.drawRect(
                     week_x, cell_y,
@@ -87,7 +75,6 @@ class HeatmapWidget(QWidget):
                 
                 current_date = current_date.addDays(1)
         
-        # Draw month labels
         painter.setPen(Qt.black)
         for month, x_pos in month_labels.items():
             painter.drawText(
@@ -97,11 +84,9 @@ class HeatmapWidget(QWidget):
                 month
             )
         
-        # Draw legend
         legend_y = y_offset + 7 * (self.cell_size + self.cell_margin) + 40
         painter.drawText(20, legend_y, "Less")
         
-        # Draw color squares for legend
         for i in range(5):
             intensity = i / 4.0
             green = 144 + int(111 * intensity)
@@ -117,9 +102,8 @@ class HeatmapWidget(QWidget):
             painter.drawRect(x_pos, legend_y, 15, 15)
         
         painter.drawText(160, legend_y, "More")
-        
+    
     def mouseMoveEvent(self, event):
-        # Calculate which cell is hovered
         x_offset = 20
         y_offset = 20
         
@@ -141,15 +125,10 @@ class HeatmapWidget(QWidget):
                 self
             )
     
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            # TODO: Implement edit dialog for clicked date
-            pass
-    
     def sizeHint(self):
         return self.minimumSizeHint()
     
     def minimumSizeHint(self):
         width = 20 + 52 * (self.cell_size + self.cell_margin)
         height = 100 + 7 * (self.cell_size + self.cell_margin)
-        return self.minimumSize()
+        return width, height
