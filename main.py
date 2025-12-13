@@ -137,6 +137,27 @@ class PushupTracker(QObject):
         conn.close()
         return data
 
+    def update_pushups_for_date(self, date_str, count):
+        """Update/Overwrite pushups for a specific date"""
+        now = datetime.datetime.now().isoformat()
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # Remove existing entries for this date
+        cursor.execute("DELETE FROM pushups WHERE date = ?", (date_str,))
+        
+        # Insert new single entry
+        cursor.execute(
+            "INSERT INTO pushups (date, count, timestamp) VALUES (?, ?, ?)",
+            (date_str, count, now)
+        )
+        conn.commit()
+        conn.close()
+        
+        # If we updated today, restart timer if needed
+        if date_str == datetime.date.today().isoformat():
+            self.start_timer()
+
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Pushup Timer")

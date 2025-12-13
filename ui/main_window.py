@@ -2,7 +2,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QPushButton, QDialog, QSpinBox, QMessageBox, QProgressBar,
     QGridLayout, QGraphicsDropShadowEffect, QSizePolicy, QSystemTrayIcon,
-    QTextEdit, QApplication
+    QTextEdit, QApplication, QComboBox
 )
 from PySide6.QtCore import QTimer, Qt, QDateTime, Signal
 from PySide6.QtGui import QFont, QColor, QPalette, QPixmap, QImage
@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 from .dialogs import SettingsDialog, NotificationDialog
 from .heatmap_widget import HeatmapWidget
+from .history_dialog import HistoryDialog
 import qrcode
 import socket
 import netifaces
@@ -83,6 +84,11 @@ class MainWindow(QMainWindow):
         self.settings_btn.clicked.connect(self.show_settings)
         self.settings_btn.setMinimumHeight(40)
         button_layout.addWidget(self.settings_btn)
+
+        self.history_btn = QPushButton("Edit History")
+        self.history_btn.clicked.connect(self.show_history)
+        self.history_btn.setMinimumHeight(40)
+        button_layout.addWidget(self.history_btn)
         
         self.pause_btn = QPushButton("Pause Timer")
         self.pause_btn.clicked.connect(self.toggle_pause)
@@ -208,11 +214,11 @@ class MainWindow(QMainWindow):
     def show_sync_dialog(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Phone Sync")
-        dialog.setFixedSize(500, 600)
+        dialog.setFixedSize(500, 650)
         
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(30, 30, 30, 30)
-        layout.setSpacing(20)
+        layout.setSpacing(15)
         
         # Title
         title = QLabel("📱 Sync with Your Phone")
@@ -223,56 +229,73 @@ class MainWindow(QMainWindow):
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
         
-        # Get laptop IP address
-        def get_local_ip():
+        # IP Selector
+        layout.addWidget(QLabel("Select Network/IP:"))
+        ip_combo = QComboBox()
+        
+        # Find all IPs
+        ips = []
+        try:
+            # Method 1: All interfaces (most robust)
+            interfaces = netifaces.interfaces()
+            for interface in interfaces:
+                addrs = netifaces.ifaddresses(interface)
+                if netifaces.AF_INET in addrs:
+                    for addr in addrs[netifaces.AF_INET]:
+                        ip = addr.get('addr')
+                        if ip and ip != '127.0.0.1':
+                            ips.append(ip)
+        except:
+            pass
+            
+        # Fallback
+        if not ips:
             try:
-                # Method 1: Connect to an external server
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 s.connect(("8.8.8.8", 80))
-                ip = s.getsockname()[0]
+                ips.append(s.getsockname()[0])
                 s.close()
-                return ip
             except:
-                # Method 2: Iterate interfaces
-                try:
-                    interfaces = netifaces.interfaces()
-                    for interface in interfaces:
-                        if interface.startswith(('wlan', 'wl', 'en', 'eth')):
-                            addrs = netifaces.ifaddresses(interface)
-                            if netifaces.AF_INET in addrs:
-                                for addr in addrs[netifaces.AF_INET]:
-                                    ip = addr.get('addr')
-                                    if ip and (ip.startswith('192.168.') or ip.startswith('10.')):
-                                        return ip
-                except:
-                    pass
-                return "127.0.0.1"
+                ips.append("127.0.0.1")
+                
+        ip_combo.addItems(ips)
+        layout.addWidget(ip_combo)
         
-        ip_address = get_local_ip()
-        url = f"http://{ip_address}:8080"
-        
-        # QR Code
-        qr = qrcode.QRCode(version=1, box_size=10, border=5)
-        qr.add_data(url)
-        qr.make(fit=True)
-        qr_img = qr.make_image(fill_color="black", back_color="white")
-        
-        # Convert to QPixmap
-        qr_img = qr_img.convert("RGBA")
-        data = qr_img.tobytes("raw", "RGBA")
-        qimage = QImage(data, qr_img.size[0], qr_img.size[1], QImage.Format_RGBA8888)
-        pixmap = QPixmap.fromImage(qimage)
-        
+        # QR Code Container
         qr_label = QLabel()
-        qr_label.setPixmap(pixmap)
         qr_label.setAlignment(Qt.AlignCenter)
+        qr_label.setMinimumHeight(200)
         layout.addWidget(qr_label)
         
         # URL display
-        url_label = QLabel(f"URL: {url}")
+        url_label = QLabel()
         url_label.setAlignment(Qt.AlignCenter)
         url_label.setStyleSheet("font-family: monospace; font-size: 14px; padding: 10px; background: #f0f0f0; border-radius: 5px;")
+        url_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         layout.addWidget(url_label)
+        
+        def update_qr():
+            ip = ip_combo.currentText()
+            url = f"http://{ip}:8080"
+            
+            # QR Code
+            qr = qrcode.QRCode(version=1, box_size=8, border=2)
+            qr.add_data(url)
+            qr.make(fit=True)
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            
+            # Convert to QPixmap
+            qr_img = qr_img.convert("RGBA")
+            data = qr_img.tobytes("raw", "RGBA")
+            qimage = QImage(data, qr_img.size[0], qr_img.size[1], QImage.Format_RGBA8888)
+            pixmap = QPixmap.fromImage(qimage)
+            qr_label.setPixmap(pixmap)
+            
+            url_label.setText(url)
+            return url
+
+        ip_combo.currentTextChanged.connect(update_qr)
+        current_url = update_qr() # Init
         
         # Instructions
         instructions = QTextEdit()
@@ -280,23 +303,12 @@ class MainWindow(QMainWindow):
         instructions.setHtml("""
         <h3>📲 How to Connect:</h3>
         <ol>
-        <li><strong>Turn on your phone's hotspot</strong></li>
-        <li><strong>Connect laptop to phone's WiFi</strong></li>
-        <li><strong>Scan QR code</strong> with phone's camera</li>
-        <li><strong>Or type the URL</strong> in phone browser</li>
+            <li>Ensure laptop and phone are on the <strong>same WiFi/Hotspot</strong>.</li>
+            <li>If the URL doesn't work, <strong>try a different IP</strong> from the dropdown above.</li>
+            <li>Scan QR code or type URL in your phone browser.</li>
         </ol>
-        
-        <h3>🎯 Once Connected:</h3>
-        <ul>
-        <li>Log pushups from your phone anytime</li>
-        <li>See today's total in real-time</li>
-        <li>View recent logs</li>
-        <li>Data automatically syncs to laptop</li>
-        </ul>
-        
-        <p><strong>Note:</strong> Both devices must be on same hotspot</p>
         """)
-        instructions.setMaximumHeight(250)
+        instructions.setMaximumHeight(150)
         layout.addWidget(instructions)
         
         # Status
@@ -305,34 +317,26 @@ class MainWindow(QMainWindow):
         layout.addWidget(status_label)
         
         # Buttons
-        button_layout = QVBoxLayout()
+        button_layout = QHBoxLayout()
         
-        import urllib.request
-        import urllib.error
-        
+        test_btn = QPushButton("Test This Connection")
         def test_connection():
+            url = url_label.text()
+            import urllib.request
+            import urllib.error
             try:
-                response = urllib.request.urlopen(f"{url}/api/today", timeout=5)
+                response = urllib.request.urlopen(f"{url}/api/today", timeout=2)
                 if response.getcode() == 200:
-                    status_label.setText("✅ Server is running!")
+                    status_label.setText("✅ Server Reachable (Locally)")
                     status_label.setStyleSheet("color: green; font-weight: bold;")
                 else:
-                    status_label.setText("⚠️ Server error")
-                    status_label.setStyleSheet("color: orange; font-weight: bold;")
-            except urllib.error.URLError:
-                status_label.setText("❌ Cannot connect")
-                status_label.setStyleSheet("color: red; font-weight: bold;")
+                    status_label.setText("⚠️ Server Error")
             except Exception as e:
-                status_label.setText(f"⚠️ Error: {str(e)}")
-                status_label.setStyleSheet("color: orange; font-weight: bold;")
-        
-        test_btn = QPushButton("Test Connection")
+                status_label.setText(f"❌ Unreachable: {e}")
+                status_label.setStyleSheet("color: red;")
+                
         test_btn.clicked.connect(test_connection)
         button_layout.addWidget(test_btn)
-        
-        copy_btn = QPushButton("Copy URL to Clipboard")
-        copy_btn.clicked.connect(lambda: QApplication.clipboard().setText(url))
-        button_layout.addWidget(copy_btn)
         
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(dialog.accept)
@@ -341,6 +345,12 @@ class MainWindow(QMainWindow):
         layout.addLayout(button_layout)
         dialog.exec()
         
+    def show_history(self):
+        dialog = HistoryDialog(self.tracker, self)
+        if dialog.exec():
+            # Refresh today's total in case we edited today
+            self.update_today_total()
+
     def show_heatmap(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Pushup Heatmap")

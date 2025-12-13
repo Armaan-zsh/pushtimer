@@ -7,14 +7,14 @@ from PySide6.QtCore import Qt, Signal, QTimer, QPoint, QPropertyAnimation, QEasi
 from PySide6.QtGui import QFont, QMouseEvent, QPainter, QColor, QPen, QBrush
 
 class NotificationDialog(QWidget):
-    """Non-modal notification with 10-second grace period"""
+    """Non-modal notification with 10-second grace period - Modern Dark Theme"""
     action_taken = Signal(int)  # Signal: -2=grace cancel, -1=snooze, 0=skip, >0=pushup count
     
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setFixedSize(340, 220)
+        self.setFixedSize(380, 280)
         
         self.grace_period_active = True
         self.grace_seconds_left = 10
@@ -26,118 +26,168 @@ class NotificationDialog(QWidget):
         main_widget.setObjectName("mainWidget")
         main_widget.setStyleSheet("""
             QWidget#mainWidget {
-                background-color: white;
-                border: 3px solid #ff4444;
-                border-radius: 12px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #1a1d24, stop:1 #0f1115);
+                border: 2px solid #00ff88;
+                border-radius: 20px;
             }
         """)
-        main_widget.setGeometry(0, 0, 340, 220)
+        main_widget.setGeometry(0, 0, 380, 280)
         
         layout = QVBoxLayout(main_widget)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        layout.setContentsMargins(25, 25, 25, 25)
+        layout.setSpacing(18)
         
-        self.title_label = QLabel("💪 Pushup Time! (Closing in 10s)")
-        title_font = QFont()
-        title_font.setPointSize(16)
+        # Title with countdown
+        self.title_label = QLabel("💪 PUSHUP TIME!")
+        title_font = QFont("Segoe UI", 18)
         title_font.setBold(True)
         self.title_label.setFont(title_font)
         self.title_label.setAlignment(Qt.AlignCenter)
-        self.title_label.setStyleSheet("color: #ff4444; margin-bottom: 5px;")
+        self.title_label.setStyleSheet("color: #00ff88; letter-spacing: 2px;")
         layout.addWidget(self.title_label)
         
+        # Countdown badge
+        self.countdown_label = QLabel("⏱️ Auto-close in 10s")
+        self.countdown_label.setAlignment(Qt.AlignCenter)
+        self.countdown_label.setStyleSheet("""
+            color: #8b9bb4;
+            font-size: 12px;
+            padding: 4px 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+        """)
+        layout.addWidget(self.countdown_label)
+        
+        # Message
         message = QLabel("35 minutes are up!\nHow many pushups did you do?")
         message.setAlignment(Qt.AlignCenter)
-        message.setStyleSheet("color: #555; font-size: 14px;")
+        message.setStyleSheet("color: #ffffff; font-size: 14px; line-height: 1.4;")
         layout.addWidget(message)
         
+        # Input with + / - buttons
         input_layout = QHBoxLayout()
+        input_layout.setSpacing(0)
         input_layout.addStretch()
+        
+        minus_btn = QPushButton("−")
+        minus_btn.setFixedSize(50, 50)
+        minus_btn.clicked.connect(lambda: self.count_spinbox.setValue(self.count_spinbox.value() - 1))
+        minus_btn.setStyleSheet("""
+            QPushButton {
+                background: #1a1d24;
+                color: #00ff88;
+                font-size: 24px;
+                font-weight: bold;
+                border: 2px solid #00ff88;
+                border-radius: 12px;
+            }
+            QPushButton:hover { background: #00ff88; color: #000; }
+            QPushButton:pressed { background: #00cc6a; }
+        """)
+        input_layout.addWidget(minus_btn)
         
         self.count_spinbox = QSpinBox()
         self.count_spinbox.setRange(0, 999)
         self.count_spinbox.setValue(10)
-        self.count_spinbox.setMinimumWidth(120)
+        self.count_spinbox.setFixedSize(100, 50)
+        self.count_spinbox.setButtonSymbols(QSpinBox.NoButtons)
+        self.count_spinbox.setAlignment(Qt.AlignCenter)
         self.count_spinbox.setStyleSheet("""
             QSpinBox {
-                font-size: 16px;
+                font-size: 28px;
                 font-weight: bold;
-                padding: 8px 12px;
-                border: 2px solid #4CAF50;
-                border-radius: 6px;
-                background-color: white;
-                color: #333;
+                padding: 8px;
+                border: none;
+                background: transparent;
+                color: #ffffff;
             }
         """)
         input_layout.addWidget(self.count_spinbox)
+        
+        plus_btn = QPushButton("+")
+        plus_btn.setFixedSize(50, 50)
+        plus_btn.clicked.connect(lambda: self.count_spinbox.setValue(self.count_spinbox.value() + 1))
+        plus_btn.setStyleSheet("""
+            QPushButton {
+                background: #1a1d24;
+                color: #00ff88;
+                font-size: 24px;
+                font-weight: bold;
+                border: 2px solid #00ff88;
+                border-radius: 12px;
+            }
+            QPushButton:hover { background: #00ff88; color: #000; }
+            QPushButton:pressed { background: #00cc6a; }
+        """)
+        input_layout.addWidget(plus_btn)
+        
         input_layout.addStretch()
         layout.addLayout(input_layout)
         
-        self.warning_label = QLabel("⚠️ Close in 10s to cancel reminder!")
-        self.warning_label.setAlignment(Qt.AlignCenter)
-        self.warning_label.setStyleSheet("color: #ff4444; font-size: 12px; font-weight: bold;")
-        layout.addWidget(self.warning_label)
-        
+        # Buttons row
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(10)
+        button_layout.setSpacing(12)
         
-        snooze_btn = QPushButton("Snooze 5 min")
-        snooze_btn.setFixedHeight(40)
+        snooze_btn = QPushButton("⏸ Snooze")
+        snooze_btn.setFixedHeight(45)
         snooze_btn.clicked.connect(lambda: self.take_action(-1))
         snooze_btn.setStyleSheet("""
             QPushButton {
-                background-color: #FF9800;
-                color: white;
-                font-size: 14px;
+                background: rgba(255, 152, 0, 0.2);
+                color: #FF9800;
+                font-size: 13px;
                 font-weight: bold;
-                border: none;
-                border-radius: 6px;
+                border: 2px solid #FF9800;
+                border-radius: 12px;
                 padding: 8px 16px;
             }
             QPushButton:hover {
-                background-color: #F57C00;
+                background: #FF9800;
+                color: #000;
             }
         """)
         
-        skip_btn = QPushButton("Skip (0)")
-        skip_btn.setFixedHeight(40)
+        skip_btn = QPushButton("✕ Skip")
+        skip_btn.setFixedHeight(45)
         skip_btn.clicked.connect(lambda: self.take_action(0))
         skip_btn.setStyleSheet("""
             QPushButton {
-                background-color: #f44336;
-                color: white;
-                font-size: 14px;
+                background: rgba(244, 67, 54, 0.2);
+                color: #f44336;
+                font-size: 13px;
                 font-weight: bold;
-                border: none;
-                border-radius: 6px;
+                border: 2px solid #f44336;
+                border-radius: 12px;
                 padding: 8px 16px;
             }
             QPushButton:hover {
-                background-color: #d32f2f;
+                background: #f44336;
+                color: #fff;
             }
         """)
         
-        log_btn = QPushButton("Log Pushups")
-        log_btn.setFixedHeight(40)
+        log_btn = QPushButton("✓ LOG")
+        log_btn.setFixedHeight(45)
         log_btn.clicked.connect(lambda: self.take_action(self.count_spinbox.value()))
         log_btn.setStyleSheet("""
             QPushButton {
-                background-color: #4CAF50;
-                color: white;
+                background: #00ff88;
+                color: #000;
                 font-size: 14px;
                 font-weight: bold;
                 border: none;
-                border-radius: 6px;
-                padding: 8px 16px;
+                border-radius: 12px;
+                padding: 8px 24px;
             }
             QPushButton:hover {
-                background-color: #388E3C;
+                background: #00cc6a;
             }
         """)
         
         button_layout.addWidget(snooze_btn)
         button_layout.addWidget(skip_btn)
-        button_layout.addWidget(log_btn)
+        button_layout.addWidget(log_btn, stretch=1)
         layout.addLayout(button_layout)
         
         self.auto_close_timer = QTimer()
@@ -153,7 +203,7 @@ class NotificationDialog(QWidget):
         
     def update_grace_period(self):
         self.grace_seconds_left -= 1
-        self.title_label.setText(f"💪 Pushup Time! (Closing in {self.grace_seconds_left}s)")
+        self.countdown_label.setText(f"⏱️ Auto-close in {self.grace_seconds_left}s")
         
         if self.grace_seconds_left <= 0:
             self.grace_period_active = False
@@ -163,15 +213,22 @@ class NotificationDialog(QWidget):
             if main_widget:
                 main_widget.setStyleSheet("""
                     QWidget#mainWidget {
-                        background-color: white;
-                        border: 3px solid #4CAF50;
-                        border-radius: 12px;
+                        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                            stop:0 #1a1d24, stop:1 #0f1115);
+                        border: 2px solid #7000ff;
+                        border-radius: 20px;
                     }
                 """)
             
-            self.title_label.setText("💪 Pushup Time!")
-            self.title_label.setStyleSheet("color: #4CAF50; margin-bottom: 5px;")
-            self.warning_label.setText("✅ Timer will reset if closed now")
+            self.title_label.setStyleSheet("color: #7000ff; letter-spacing: 2px;")
+            self.countdown_label.setText("✅ Ready to log!")
+            self.countdown_label.setStyleSheet("""
+                color: #00ff88;
+                font-size: 12px;
+                padding: 4px 12px;
+                background: rgba(0,255,136,0.1);
+                border-radius: 10px;
+            """)
             
     def take_action(self, action_type):
         self.grace_timer.stop()
@@ -202,9 +259,10 @@ class NotificationDialog(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         
-        painter.setBrush(QBrush(QColor(0, 0, 0, 30)))
+        # Drop shadow effect
+        painter.setBrush(QBrush(QColor(0, 255, 136, 30)))
         painter.setPen(Qt.NoPen)
-        painter.drawRoundedRect(4, 4, self.width(), self.height(), 12, 12)
+        painter.drawRoundedRect(6, 6, self.width() - 6, self.height() - 6, 20, 20)
 
 
 class SettingsDialog(QDialog):
