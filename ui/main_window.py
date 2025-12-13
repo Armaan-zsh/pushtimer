@@ -468,7 +468,7 @@ class MainWindow(QMainWindow):
     def show_heatmap(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Pushup Heatmap (GitHub Style)")
-        dialog.setMinimumSize(900, 250)
+        dialog.setMinimumSize(1050, 250)  # Increased width to fit 53 weeks
         
         # Dark theme for dialog
         dialog.setStyleSheet("background: #1a1d24; color: white;")

@@ -11,7 +11,7 @@ class HeatmapWidget(QWidget):
         self.cell_size = 14
         self.cell_margin = 3
         self.setMouseTracking(True)
-        self.setMinimumWidth(900)
+        self.setMinimumWidth(1000)
         self.setMinimumHeight(180)
         
         # Debug: print loaded data
@@ -25,6 +25,13 @@ class HeatmapWidget(QWidget):
         
         today = QDate.currentDate()
         print(f"[Heatmap] Today: {today.toString('yyyy-MM-dd')}, dayOfWeek: {today.dayOfWeek()}")
+        
+        # Calculate start date: 52 weeks ago, aligned to Monday
+        # Qt dayOfWeek(): 1=Mon, 7=Sun
+        # We want to start on a Monday, so subtract (dayOfWeek - 1) to get to current week's Monday
+        # then go back 52 weeks
+        start_date = today.addDays(-(52 * 7) - (today.dayOfWeek() - 1))
+        print(f"[Heatmap] Start date: {start_date.toString('yyyy-MM-dd')}")
         
         # Calculate max for scaling
         max_count = max(self.data.values()) if self.data else 1
@@ -76,6 +83,9 @@ class HeatmapWidget(QWidget):
                     
                 date_str = current_date.toString("yyyy-MM-dd")
                 count = self.data.get(date_str, 0)
+                
+                if count > 0:
+                    print(f"[Heatmap] MATCH: {date_str} = {count} at week {week}, day {day_idx}, x={week_x}")
                 
                 # Determine color level (0-4)
                 if count == 0:
@@ -131,7 +141,7 @@ class HeatmapWidget(QWidget):
         y_offset = 25
         
         today = QDate.currentDate()
-        start_date = today.addDays(-52 * 7 - today.dayOfWeek() + 1)
+        start_date = today.addDays(-(52 * 7) - (today.dayOfWeek() - 1))
         
         # FIX: Use event.pos() not event.key()
         pos = event.pos()
