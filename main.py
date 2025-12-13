@@ -143,6 +143,15 @@ def main():
     app.setQuitOnLastWindowClosed(False)
     
     tracker = PushupTracker()
+    
+    # Start web server
+    from web_server import PushupWebServer
+    try:
+        server = PushupWebServer(tracker.db_path)
+        server.start_in_thread()
+    except Exception as e:
+        print(f"Failed to start web server: {e}")
+
     window = MainWindow(tracker)
     
     # System tray

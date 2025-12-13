@@ -226,21 +226,26 @@ class MainWindow(QMainWindow):
         # Get laptop IP address
         def get_local_ip():
             try:
-                interfaces = netifaces.interfaces()
-                for interface in interfaces:
-                    if interface.startswith(('wlan', 'wl', 'en')):
-                        addrs = netifaces.ifaddresses(interface)
-                        if netifaces.AF_INET in addrs:
-                            for addr in addrs[netifaces.AF_INET]:
-                                ip = addr.get('addr')
-                                if ip and ip.startswith('192.168.43.'):
-                                    return ip
+                # Method 1: Connect to an external server
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 s.connect(("8.8.8.8", 80))
                 ip = s.getsockname()[0]
                 s.close()
                 return ip
             except:
+                # Method 2: Iterate interfaces
+                try:
+                    interfaces = netifaces.interfaces()
+                    for interface in interfaces:
+                        if interface.startswith(('wlan', 'wl', 'en', 'eth')):
+                            addrs = netifaces.ifaddresses(interface)
+                            if netifaces.AF_INET in addrs:
+                                for addr in addrs[netifaces.AF_INET]:
+                                    ip = addr.get('addr')
+                                    if ip and (ip.startswith('192.168.') or ip.startswith('10.')):
+                                        return ip
+                except:
+                    pass
                 return "127.0.0.1"
         
         ip_address = get_local_ip()
