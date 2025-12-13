@@ -24,11 +24,11 @@ class PushupTracker(QObject):
         self.db_path = self.app_dir / "pushups.db"
         self.config_path = self.config_dir / "config.json"
         
-        # Create directories if they don't exist
+        # Create directories
         self.app_dir.mkdir(parents=True, exist_ok=True)
         self.config_dir.mkdir(parents=True, exist_ok=True)
         
-        # Initialize database and config
+        # Init
         self.init_db()
         self.load_config()
         
@@ -50,9 +50,7 @@ class PushupTracker(QObject):
                 timestamp TEXT NOT NULL
             )
         ''')
-        cursor.execute('''
-            CREATE INDEX IF NOT EXISTS idx_date ON pushups(date)
-        ''')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_date ON pushups(date)')
         conn.commit()
         conn.close()
     
@@ -61,10 +59,12 @@ class PushupTracker(QObject):
         default_config = {
             "timer_minutes": 35,
             "reminder_seconds": 60,
+            "daily_goal": 100,
             "autostart": True,
             "start_minimized": True,
-            "theme": "light",
-            "aggregate_mode": "add"
+            "theme": "dark",
+            "aggregate_mode": "add",
+            "sound_enabled": True
         }
         
         if self.config_path.exists():
@@ -81,26 +81,21 @@ class PushupTracker(QObject):
             json.dump(self.config, f, indent=2)
     
     def start_timer(self):
-        """Start or restart the reminder timer"""
         if not self.is_paused:
             self.timer.start(self.reminder_time)
     
     def pause_timer(self):
-        """Pause the timer"""
         self.is_paused = True
         self.timer.stop()
     
     def resume_timer(self):
-        """Resume the timer"""
         self.is_paused = False
         self.timer.start(self.reminder_time)
     
     def show_reminder(self):
-        """Emit signal to show reminder dialog"""
         self.reminder_signal.emit()
     
     def save_pushups(self, count):
-        """Save pushup count to database"""
         today = datetime.date.today().isoformat()
         now = datetime.datetime.now().isoformat()
         
@@ -118,8 +113,21 @@ class PushupTracker(QObject):
         conn.close()
         self.start_timer()
     
+    def update_pushups_for_date(self, date_str, count):
+        now = datetime.datetime.now().isoformat()
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM pushups WHERE date = ?", (date_str,))
+        cursor.execute(
+            "INSERT INTO pushups (date, count, timestamp) VALUES (?, ?, ?)",
+            (date_str, count, now)
+        )
+        conn.commit()
+        conn.close()
+        if date_str == datetime.date.today().isoformat():
+            self.start_timer()
+
     def get_today_total(self):
-        """Get total pushups for today"""
         today = datetime.date.today().isoformat()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -129,7 +137,6 @@ class PushupTracker(QObject):
         return result or 0
     
     def get_all_data(self):
-        """Get all pushup data for heatmap"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute("SELECT date, SUM(count) as total FROM pushups GROUP BY date ORDER BY date")
@@ -137,26 +144,71 @@ class PushupTracker(QObject):
         conn.close()
         return data
 
-    def update_pushups_for_date(self, date_str, count):
-        """Update/Overwrite pushups for a specific date"""
-        now = datetime.datetime.now().isoformat()
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+    # --- NEW MEGA FEATURES ---
+
+    def get_streak(self):
+        """Calculate current streak of days with >= 1 pushup"""
+        data = self.get_all_data()
+        if not data: return 0
         
-        # Remove existing entries for this date
-        cursor.execute("DELETE FROM pushups WHERE date = ?", (date_str,))
+        sorted_dates = sorted(data.keys(), reverse=True)
+        today = datetime.date.today()
+        streak = 0
         
-        # Insert new single entry
-        cursor.execute(
-            "INSERT INTO pushups (date, count, timestamp) VALUES (?, ?, ?)",
-            (date_str, count, now)
-        )
-        conn.commit()
-        conn.close()
+        # Check today first
+        if today.isoformat() in data and data[today.isoformat()] > 0:
+            streak += 1
+            current_date = today - datetime.timedelta(days=1)
+        else:
+            # If no pushups today yet, check if we had some yesterday (streak active but at risk)
+            # or if streak is already broken.
+            # Technically streak is 0 if not done today, but let's be kind and check yesterday
+            current_date = today - datetime.timedelta(days=1)
+            if current_date.isoformat() not in data:
+                return 0 # Broken streak
         
-        # If we updated today, restart timer if needed
-        if date_str == datetime.date.today().isoformat():
-            self.start_timer()
+        while True:
+            date_str = current_date.isoformat()
+            if date_str in data and data[date_str] > 0:
+                streak += 1
+                current_date -= datetime.timedelta(days=1)
+            else:
+                break
+        return streak
+
+    def get_stats(self):
+        """Get comprehensive stats"""
+        data = self.get_all_data()
+        if not data:
+            return {"total": 0, "best_day": 0, "avg": 0, "weekly_avg": 0}
+            
+        values = list(data.values())
+        total = sum(values)
+        best_day = max(values)
+        avg = total / len(values)
+        
+        # Last 7 days
+        today = datetime.date.today()
+        last_week_total = 0
+        for i in range(7):
+            d = (today - datetime.timedelta(days=i)).isoformat()
+            last_week_total += data.get(d, 0)
+        weekly_avg = last_week_total / 7
+        
+        return {
+            "total": total,
+            "best_day": best_day,
+            "avg": round(avg, 1),
+            "weekly_avg": round(weekly_avg, 1)
+        }
+
+    def export_csv(self, file_path):
+        """Export data to CSV"""
+        data = self.get_all_data()
+        with open(file_path, 'w') as f:
+            f.write("Date,Count\n")
+            for date in sorted(data.keys()):
+                f.write(f"{date},{data[date]}\n")
 
 def main():
     app = QApplication(sys.argv)

@@ -59,8 +59,21 @@ class NotificationDialog(QWidget):
         """)
         layout.addWidget(self.countdown_label)
         
+        # Quotes
+        import random
+        quotes = [
+            "Pain is temporary. Pride is forever.",
+            "Don't stop when you're tired. Stop when you're done.",
+            "Your body can stand almost anything. It's your mind that you have to convince.",
+            "The only bad workout is the one that didn't happen.",
+            "Suffer now and live the rest of your life as a champion.",
+            "Discipline is doing what needs to be done, even if you don't want to do it.",
+            "Push yourself, because no one else is going to do it for you."
+        ]
+        quote = random.choice(quotes)
+        
         # Message
-        message = QLabel("35 minutes are up!\nHow many pushups did you do?")
+        message = QLabel(f"35 minutes are up!\nHow many pushups did you do?\n\n<i>{quote}</i>")
         message.setAlignment(Qt.AlignCenter)
         message.setStyleSheet("color: #ffffff; font-size: 14px; line-height: 1.4;")
         layout.addWidget(message)
@@ -307,6 +320,17 @@ class SettingsDialog(QDialog):
         self.start_minimized_check.setChecked(self.config.get("start_minimized", True))
         layout.addRow("Start minimized:", self.start_minimized_check)
         
+        # New Settings
+        self.goal_spinbox = QSpinBox()
+        self.goal_spinbox.setRange(10, 1000)
+        self.goal_spinbox.setValue(self.config.get("daily_goal", 100))
+        self.goal_spinbox.setSingleStep(10)
+        layout.addRow("Daily Goal:", self.goal_spinbox)
+        
+        self.sound_check = QCheckBox()
+        self.sound_check.setChecked(self.config.get("sound_enabled", True))
+        layout.addRow("Enable Sound:", self.sound_check)
+        
         buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         )
@@ -322,5 +346,7 @@ class SettingsDialog(QDialog):
             "aggregate_mode": self.aggregate_combo.currentText(),
             "enable_phone_sync": self.enable_sync_check.isChecked(),
             "autostart": self.autostart_check.isChecked(),
-            "start_minimized": self.start_minimized_check.isChecked()
+            "start_minimized": self.start_minimized_check.isChecked(),
+            "daily_goal": self.goal_spinbox.value(),
+            "sound_enabled": self.sound_check.isChecked()
         }
