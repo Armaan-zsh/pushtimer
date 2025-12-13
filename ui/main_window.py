@@ -32,41 +32,54 @@ class MainWindow(QMainWindow):
         
     def setup_ui(self):
         self.setWindowTitle("Pushup Timer")
-        self.setMinimumSize(450, 600)
+        self.setMinimumSize(480, 680)
+        self.setMaximumWidth(600)
         
         # Central Container
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
-        # Main Gradient Background
+        # Main Background
         self.setStyleSheet("""
             QMainWindow {
-                background: #0f1115;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #0f1115, stop:1 #1a1d24);
             }
         """)
         
         layout = QVBoxLayout(central_widget)
-        layout.setSpacing(15)
+        layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
         
-        # --- HEADER (Streak & Title) ---
+        # ═══════════════════════════════════════════════════════════
+        # HEADER
+        # ═══════════════════════════════════════════════════════════
         header = QWidget()
-        header.setStyleSheet("background: #1a1d24; border-bottom: 2px solid #2d333b;")
-        header.setFixedHeight(80)
+        header.setStyleSheet("""
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 #1a1d24, stop:1 #22262e);
+            border-bottom: 1px solid #2d333b;
+        """)
+        header.setFixedHeight(70)
         header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(20, 0, 20, 0)
+        header_layout.setContentsMargins(24, 0, 24, 0)
         
-        title_label = QLabel("PUSHTIMER")
-        title_label.setStyleSheet("color: #ffffff; font-weight: 800; font-size: 18px; letter-spacing: 2px;")
+        title_label = QLabel("💪 PUSHTIMER")
+        title_label.setStyleSheet("""
+            color: #ffffff; 
+            font-weight: 700; 
+            font-size: 20px; 
+            letter-spacing: 1px;
+        """)
         
         self.streak_label = QLabel("🔥 0 Day Streak")
         self.streak_label.setStyleSheet("""
             color: #ff9800; 
-            font-weight: bold; 
-            font-size: 14px;
-            background: rgba(255, 152, 0, 0.1);
-            padding: 6px 12px;
-            border-radius: 12px;
+            font-weight: 600; 
+            font-size: 13px;
+            background: rgba(255, 152, 0, 0.15);
+            padding: 8px 16px;
+            border-radius: 20px;
             border: 1px solid rgba(255, 152, 0, 0.3);
         """)
         
@@ -75,91 +88,135 @@ class MainWindow(QMainWindow):
         header_layout.addWidget(self.streak_label)
         layout.addWidget(header)
         
-        # --- MAIN CONTENT ---
-        content_layout = QVBoxLayout()
-        content_layout.setContentsMargins(30, 10, 30, 30)
-        content_layout.setSpacing(20)
+        # ═══════════════════════════════════════════════════════════
+        # MAIN CONTENT AREA
+        # ═══════════════════════════════════════════════════════════
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(24, 24, 24, 24)
+        content_layout.setSpacing(24)
         
-        # Progress Ring
+        # --- Progress Ring ---
         ring_container = QWidget()
+        ring_container.setStyleSheet("background: transparent;")
         ring_layout = QVBoxLayout(ring_container)
+        ring_layout.setContentsMargins(0, 0, 0, 0)
         self.progress_ring = ProgressRing()
         ring_layout.addWidget(self.progress_ring, 0, Qt.AlignCenter)
         content_layout.addWidget(ring_container)
         
-        # Timer Status
+        # --- Timer Status Card ---
         self.status_container = QWidget()
-        self.status_container.setStyleSheet("background: #1a1d24; border-radius: 15px; padding: 10px;")
+        self.status_container.setStyleSheet("""
+            background: #1a1d24;
+            border-radius: 16px;
+            border: 1px solid #2d333b;
+        """)
+        self.status_container.setFixedHeight(70)
         status_layout = QVBoxLayout(self.status_container)
+        status_layout.setContentsMargins(20, 12, 20, 12)
+        status_layout.setSpacing(8)
         
-        self.timer_label = QLabel("Reminder: 35:00")
+        self.timer_label = QLabel("Next reminder in: 35:00")
         self.timer_label.setAlignment(Qt.AlignCenter)
-        self.timer_label.setStyleSheet("color: #8b9bb4; font-size: 18px; font-family: monospace; font-weight: bold;")
+        self.timer_label.setStyleSheet("""
+            color: #ffffff; 
+            font-size: 16px; 
+            font-family: 'SF Mono', 'Consolas', monospace; 
+            font-weight: 600;
+            background: transparent;
+        """)
         status_layout.addWidget(self.timer_label)
         
         self.progress_bar = QProgressBar()
-        self.progress_bar.setFixedHeight(6)
+        self.progress_bar.setFixedHeight(4)
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setStyleSheet("""
             QProgressBar {
                 background: #2d333b;
-                border-radius: 3px;
+                border-radius: 2px;
                 border: none;
             }
             QProgressBar::chunk {
-                background: #00ff88;
-                border-radius: 3px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #00ff88, stop:1 #00cc6a);
+                border-radius: 2px;
             }
         """)
         status_layout.addWidget(self.progress_bar)
         content_layout.addWidget(self.status_container)
         
-        # Buttons Grid
-        grid_layout = QGridLayout()
-        grid_layout.setSpacing(15)
+        # ═══════════════════════════════════════════════════════════
+        # ACTION BUTTONS GRID (2x4 grid, equal width columns)
+        # ═══════════════════════════════════════════════════════════
+        grid_container = QWidget()
+        grid_layout = QGridLayout(grid_container)
+        grid_layout.setSpacing(12)
+        grid_layout.setContentsMargins(0, 0, 0, 0)
+        grid_layout.setColumnStretch(0, 1)
+        grid_layout.setColumnStretch(1, 1)
         
-        # Helper to create buttons
-        def create_btn(text, icon_char, color="#ffffff", bg="#2d333b"):
-            btn = QPushButton(f"{icon_char}  {text}")
-            btn.setMinimumHeight(50)
+        # Button factory with centered text
+        def create_btn(text, icon, primary=False):
+            btn = QPushButton(f"{icon}  {text}")
+            btn.setMinimumHeight(52)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background: {bg};
-                    color: {color};
-                    border: none;
-                    border-radius: 10px;
-                    font-weight: 600;
-                    font-size: 14px;
-                    text-align: left;
-                    padding-left: 20px;
-                }}
-                QPushButton:hover {{
-                    background: {bg}dd; 
-                    border: 1px solid {color}55;
-                }}
-            """)
+            
+            if primary:
+                btn.setStyleSheet("""
+                    QPushButton {
+                        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                            stop:0 #0d5c30, stop:1 #0a4424);
+                        color: #00ff88;
+                        border: 1px solid #00ff8844;
+                        border-radius: 12px;
+                        font-weight: 600;
+                        font-size: 14px;
+                    }
+                    QPushButton:hover {
+                        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                            stop:0 #0f6d38, stop:1 #0c5029);
+                        border: 1px solid #00ff88;
+                    }
+                    QPushButton:pressed { background: #0a4424; }
+                """)
+            else:
+                btn.setStyleSheet("""
+                    QPushButton {
+                        background: #22262e;
+                        color: #e0e0e0;
+                        border: 1px solid #2d333b;
+                        border-radius: 12px;
+                        font-weight: 500;
+                        font-size: 14px;
+                    }
+                    QPushButton:hover {
+                        background: #2d333b;
+                        border: 1px solid #444c56;
+                    }
+                    QPushButton:pressed { background: #1a1d24; }
+                """)
             return btn
         
-        # Row 1
-        self.log_btn = create_btn("Quick Log", "✓", "#00ff88", "#0d4429")
-        self.log_btn.clicked.connect(lambda: self.tracker.save_pushups(20)) # Quick log default
+        # Row 0: Quick Log (primary) | Heatmap
+        self.log_btn = create_btn("Quick Log", "✓", primary=True)
+        self.log_btn.clicked.connect(lambda: self.tracker.save_pushups(20))
         grid_layout.addWidget(self.log_btn, 0, 0)
         
         self.heatmap_btn = create_btn("Heatmap", "📅")
         self.heatmap_btn.clicked.connect(self.show_heatmap)
         grid_layout.addWidget(self.heatmap_btn, 0, 1)
         
-        # Row 2
+        # Row 1: History | Stats
         self.history_btn = create_btn("History", "📝")
         self.history_btn.clicked.connect(self.show_history)
         grid_layout.addWidget(self.history_btn, 1, 0)
         
-        self.stats_btn = create_btn("Stats", "📊") # New
+        self.stats_btn = create_btn("Stats", "📊")
         self.stats_btn.clicked.connect(self.show_stats)
         grid_layout.addWidget(self.stats_btn, 1, 1)
 
-        # Row 3
+        # Row 2: Phone Sync | Settings
         self.sync_btn = create_btn("Phone Sync", "📱")
         self.sync_btn.clicked.connect(self.show_sync_dialog)
         grid_layout.addWidget(self.sync_btn, 2, 0)
@@ -168,33 +225,40 @@ class MainWindow(QMainWindow):
         self.settings_btn.clicked.connect(self.show_settings)
         grid_layout.addWidget(self.settings_btn, 2, 1)
         
-        # Row 4 (Mini Timer)
-        self.float_btn = create_btn("Mini Timer", "🧱")
+        # Row 3: Mini Timer (spans only left column for balance)
+        self.float_btn = create_btn("Mini Timer", "🔲")
         self.float_btn.clicked.connect(self.show_floating_timer)
         grid_layout.addWidget(self.float_btn, 3, 0)
         
-        content_layout.addLayout(grid_layout)
+        content_layout.addWidget(grid_container)
+        content_layout.addStretch()
         
-        # Pause Button (Main)
+        # ═══════════════════════════════════════════════════════════
+        # PAUSE BUTTON (Full width)
+        # ═══════════════════════════════════════════════════════════
         self.pause_btn = QPushButton("⏸  Pause Timer")
-        self.pause_btn.setMinimumHeight(45)
+        self.pause_btn.setMinimumHeight(50)
         self.pause_btn.setCursor(Qt.PointingHandCursor)
-        self.pause_btn.clicked.connect(self.toggle_pause)
         self.pause_btn.setStyleSheet("""
             QPushButton {
                 background: transparent;
                 color: #ff9800;
                 border: 2px solid #ff9800;
-                border-radius: 10px;
-                font-weight: bold;
+                border-radius: 12px;
+                font-weight: 600;
+                font-size: 14px;
             }
             QPushButton:hover {
                 background: rgba(255, 152, 0, 0.1);
             }
+            QPushButton:pressed {
+                background: rgba(255, 152, 0, 0.2);
+            }
         """)
+        self.pause_btn.clicked.connect(self.toggle_pause)
         content_layout.addWidget(self.pause_btn)
         
-        layout.addLayout(content_layout)
+        layout.addWidget(content_widget, 1)
         
         self.update_today_total()
         self.update_streak()
@@ -246,7 +310,7 @@ class MainWindow(QMainWindow):
         minutes = seconds_left // 60
         seconds = seconds_left % 60
         time_str = f"{minutes:02d}:{seconds:02d}"
-        self.timer_label.setText(f"Reminder: {time_str}")
+        self.timer_label.setText(f"Next reminder in: {time_str}")
         
         if hasattr(self, 'floating_widget') and self.floating_widget and self.floating_widget.isVisible():
             self.floating_widget.update_time(time_str)
